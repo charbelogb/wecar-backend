@@ -1,33 +1,36 @@
-# WeCar Backend (MVP Level 1)
+# WeCar Backend — Ultra-Simple MVP
 
-NestJS + PostgreSQL + Prisma backend for WeCar public/customer/admin MVP.
+Lightweight NestJS + PostgreSQL + Prisma backend for the WeCar MVP.
 
-## Features
-
-- JWT auth (`register`, `login`, `me`)
-- Public cars API (`list`, `detail`)
-- Booking creation with server-side pricing and availability checks
-- Payment architecture with provider abstraction + mock provider
-- Payment initiation, verification, and webhook handling
-- Customer booking/profile endpoints
-- Admin endpoints for cars, bookings, and customers
-- Prisma schema + SQL migration + seed script
+WeCar is a **lead-generation and assisted booking** platform for vehicle rental. The backend behaves like a lightweight CRM/data API, not a full booking engine. Availability is confirmed manually via WhatsApp after a request is submitted.
 
 ## Tech stack
 
-- NestJS (TypeScript)
-- Prisma ORM
-- PostgreSQL
+- **NestJS** (TypeScript)
+- **Prisma ORM**
+- **PostgreSQL**
+
+## API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/settings` | Public config (WhatsApp number, currency) |
+| `GET` | `/cars` | List active cars (supports `city`, `category`, `chauffeurAvailable` query params) |
+| `GET` | `/cars/:slug` | Single car detail with images |
+| `GET` | `/cars/:slug/similar` | Similar cars (same category or city) |
+| `POST` | `/reservation-requests` | Submit a reservation request for a specific car |
+| `POST` | `/custom-requests` | Submit a custom request (user describes their need) |
 
 ## Environment setup
 
-1. Copy env template:
+1. Copy the env template:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Configure `.env` values (especially `DATABASE_URL`, `JWT_SECRET`, `PAYMENT_WEBHOOK_SECRET`).
+2. Set your `DATABASE_URL` in `.env`.
 
 ## Install and run
 
@@ -41,64 +44,46 @@ npm run start:dev
 
 ## Available scripts
 
-- `npm run start:dev` - run API in watch mode
-- `npm run build` - build application
-- `npm run test` - unit tests
-- `npm run lint` - lint code
-- `npm run prisma:generate` - generate Prisma client
-- `npm run prisma:migrate` - apply migrations
-- `npm run prisma:seed` - seed sample admin/customer/car data
+| Script | Description |
+|--------|-------------|
+| `npm run start:dev` | Run API in watch mode |
+| `npm run build` | Build for production |
+| `npm run start:prod` | Run production build |
+| `npm run test` | Run unit tests |
+| `npm run lint` | Lint code |
+| `npm run prisma:generate` | Generate Prisma client |
+| `npm run prisma:migrate` | Apply DB migrations |
+| `npm run prisma:seed` | Seed sample car data |
 
-## Core business rules
+## Data models
 
-- `total = days_count * price_per_day + optional chauffeur surcharge`
-- `upfront = 30% of total`
-- `remaining = total - upfront`
-- Car is not bookable if:
-  - car status is not `ACTIVE`
-  - date range overlaps `PAID`/`CONFIRMED` bookings
-  - date range overlaps availability blocks
+### Car
+Fields: `id`, `slug`, `title`, `brand`, `model`, `year`, `city`, `category`, `pricePerDay`, `chauffeurAvailable`, `transmission`, `fuelType`, `seats`, `description`, `mainImageUrl`, `pickupZone`, `depositAmount`, `rentalPolicy`, `cancellationPolicy`, `whatsappPhone`, `status`, `createdAt`
 
-## Key API endpoints
+### CarImage
+Fields: `id`, `carId`, `imageUrl`, `sortOrder`
 
-### Auth
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /auth/me`
+### ReservationRequest
+Fields: `id`, `carId`, `fullName`, `phone`, `email`, `startDate`, `endDate`, `pickupLocation`, `chauffeurRequired`, `message`, `status`, `createdAt`
 
-### Public cars
-- `GET /cars`
-- `GET /cars/:slug`
+### CustomRequest
+Fields: `id`, `fullName`, `phone`, `email`, `startDate`, `endDate`, `city`, `budgetEstimate`, `preferredVehicleType`, `chauffeurRequired`, `message`, `status`, `createdAt`
 
-### Customer
-- `POST /bookings`
-- `GET /bookings/me`
-- `GET /bookings/:id`
-- `PATCH /users/profile`
+## Request status flow
 
-### Payments
-- `POST /payments/initiate`
-- `POST /payments/verify`
+All requests start with status `NEW`. Status is updated manually:
+`NEW` → `CONTACTED` → `CONVERTED` / `CANCELLED`
 
-### Admin (JWT + ADMIN role)
-- `GET /admin/cars`
-- `POST /admin/cars`
-- `GET /admin/cars/:id`
-- `PATCH /admin/cars/:id`
-- `DELETE /admin/cars/:id`
-- `GET /admin/bookings`
-- `GET /admin/bookings/:id`
-- `PATCH /admin/bookings/:id/status`
-- `GET /admin/customers`
+## Notifications
 
-### Webhooks
-- `POST /webhooks/payments/:provider`
-  - Signature header: `x-wecar-signature`
-  - Mock signature format uses HMAC SHA256 over `reference:status`
+A `NotificationsService` is included with a **logging adapter** (no-op by default). It logs to the console when a reservation or custom request is created. To add real email delivery, replace the log statements in `src/notifications/notifications.service.ts` with a provider like Nodemailer or Resend.
 
-## Seeded accounts
+## What is intentionally NOT implemented
 
-- Admin: `admin@wecar.local` / `Admin123!`
-- Customer: `customer@wecar.local` / `Customer123!`
+- Authentication / JWT
+- Admin dashboard or CRUD endpoints
+- Payment processing
+- Live availability management
+- Webhook flows
+- Booking status engine
 
-Use these only for local development.

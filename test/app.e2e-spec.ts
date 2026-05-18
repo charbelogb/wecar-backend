@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppController } from '../src/app.controller';
@@ -11,7 +12,15 @@ describe('Health (e2e)', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        AppService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, fallback?: string) => fallback ?? '',
+          },
+        },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
