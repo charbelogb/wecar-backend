@@ -7,78 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  CUSTOMER
-  ADMIN
-}
-
 enum CarStatus {
   DRAFT
   ACTIVE
-  UNAVAILABLE
   ARCHIVED
 }
 
-enum BookingStatus {
-  PENDING
-  PAID
-  CONFIRMED
+enum RequestStatus {
+  NEW
+  CONTACTED
+  CONVERTED
   CANCELLED
-  COMPLETED
-}
-
-enum PaymentStatus {
-  PENDING
-  SUCCESSFUL
-  FAILED
-  REFUNDED
-}
-
-enum PaymentProvider {
-  MOCK
-}
-
-enum AvailabilitySource {
-  ADMIN
-  BOOKING
-}
-
-model User {
-  id           String    @id @default(cuid())
-  fullName     String    @map("full_name")
-  email        String    @unique
-  phone        String
-  passwordHash String    @map("password_hash")
-  role         UserRole  @default(CUSTOMER)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  bookings     Booking[]
-
-  @@map("users")
 }
 
 model Car {
-  id                    String              @id @default(cuid())
-  slug                  String              @unique
-  title                 String
-  brand                 String
-  model                 String
-  year                  Int
-  category              String
-  city                  String
-  pricePerDay           Decimal             @map("price_per_day") @db.Decimal(10, 2)
-  depositAmount         Decimal             @map("deposit_amount") @db.Decimal(10, 2)
-  chauffeurAvailable    Boolean             @default(false) @map("chauffeur_available")
-  chauffeurPricePerDay  Decimal?            @map("chauffeur_price_per_day") @db.Decimal(10, 2)
-  transmission          String
-  fuelType              String              @map("fuel_type")
-  seats                 Int
-  description           String
-  mainImageUrl          String              @map("main_image_url")
-  status                CarStatus           @default(DRAFT)
-  createdAt             DateTime            @default(now()) @map("created_at")
-  images                CarImage[]
-  bookings              Booking[]
-  availabilityBlocks    AvailabilityBlock[]
+  id                   String               @id @default(cuid())
+  slug                 String               @unique
+  title                String
+  brand                String
+  model                String
+  year                 Int
+  city                 String
+  category             String
+  pricePerDay          Decimal              @map("price_per_day") @db.Decimal(10, 2)
+  chauffeurAvailable   Boolean              @default(false) @map("chauffeur_available")
+  transmission         String
+  fuelType             String               @map("fuel_type")
+  seats                Int
+  description          String
+  mainImageUrl         String               @map("main_image_url")
+  pickupZone           String?              @map("pickup_zone")
+  depositAmount        Decimal              @map("deposit_amount") @db.Decimal(10, 2)
+  rentalPolicy         String?              @map("rental_policy")
+  cancellationPolicy   String?              @map("cancellation_policy")
+  whatsappPhone        String?              @map("whatsapp_phone")
+  status               CarStatus            @default(DRAFT)
+  createdAt            DateTime             @default(now()) @map("created_at")
+  images               CarImage[]
+  reservationRequests  ReservationRequest[]
 
   @@map("cars")
 }
@@ -93,57 +59,38 @@ model CarImage {
   @@map("car_images")
 }
 
-model Booking {
+model ReservationRequest {
   id                String        @id @default(cuid())
-  userId            String        @map("user_id")
   carId             String        @map("car_id")
+  fullName          String        @map("full_name")
+  phone             String
+  email             String?
   startDate         DateTime      @map("start_date")
   endDate           DateTime      @map("end_date")
-  daysCount         Int           @map("days_count")
-  pickupLocation    String        @map("pickup_location")
-  chauffeurSelected Boolean       @default(false) @map("chauffeur_selected")
-  subtotalAmount    Decimal       @map("subtotal_amount") @db.Decimal(10, 2)
-  chauffeurAmount   Decimal       @map("chauffeur_amount") @db.Decimal(10, 2)
-  totalAmount       Decimal       @map("total_amount") @db.Decimal(10, 2)
-  upfrontAmount     Decimal       @map("upfront_amount") @db.Decimal(10, 2)
-  remainingAmount   Decimal       @map("remaining_amount") @db.Decimal(10, 2)
-  paymentStatus     PaymentStatus @default(PENDING) @map("payment_status")
-  bookingStatus     BookingStatus @default(PENDING) @map("booking_status")
-  notes             String?
+  pickupLocation    String?       @map("pickup_location")
+  chauffeurRequired Boolean       @default(false) @map("chauffeur_required")
+  message           String?
+  status            RequestStatus @default(NEW)
   createdAt         DateTime      @default(now()) @map("created_at")
-  user              User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   car               Car           @relation(fields: [carId], references: [id], onDelete: Restrict)
-  payments          Payment[]
-  availabilityBlock AvailabilityBlock?
 
-  @@map("bookings")
+  @@map("reservation_requests")
 }
 
-model Payment {
-  id                String          @id @default(cuid())
-  bookingId         String          @map("booking_id")
-  provider          PaymentProvider
-  providerReference String?         @map("provider_reference")
-  amount            Decimal         @db.Decimal(10, 2)
-  currency          String          @default("XOF")
-  status            PaymentStatus   @default(PENDING)
-  paidAt            DateTime?       @map("paid_at")
-  rawPayload        Json?           @map("raw_payload")
-  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+model CustomRequest {
+  id                   String        @id @default(cuid())
+  fullName             String        @map("full_name")
+  phone                String
+  email                String?
+  startDate            DateTime?     @map("start_date")
+  endDate              DateTime?     @map("end_date")
+  city                 String?
+  budgetEstimate       Decimal?      @map("budget_estimate") @db.Decimal(10, 2)
+  preferredVehicleType String?       @map("preferred_vehicle_type")
+  chauffeurRequired    Boolean       @default(false) @map("chauffeur_required")
+  message              String?
+  status               RequestStatus @default(NEW)
+  createdAt            DateTime      @default(now()) @map("created_at")
 
-  @@map("payments")
-}
-
-model AvailabilityBlock {
-  id        String             @id @default(cuid())
-  carId     String             @map("car_id")
-  startDate DateTime           @map("start_date")
-  endDate   DateTime           @map("end_date")
-  source    AvailabilitySource @default(ADMIN)
-  bookingId String?            @unique @map("booking_id")
-  note      String?
-  car       Car                @relation(fields: [carId], references: [id], onDelete: Cascade)
-  booking   Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-
-  @@map("availability_blocks")
+  @@map("custom_requests")
 }
